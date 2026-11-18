@@ -223,10 +223,13 @@ class TestEventDescriptionResponsiveness(unittest.TestCase):
         def signal_write(sql, *args, **kwargs):
             if sql.startswith("UPDATE"):
                 entered.set()
+                if not release.wait(4):
+                    raise TimeoutError("test database write was not released")
             return original(sql, *args, **kwargs)
 
         with closing(sqlite3.connect(self.path)) as locker:
             locker.execute("BEGIN IMMEDIATE")
+            self.assertTrue(locker.in_transaction)
             with patch.object(self.db, "execute_sql", signal_write):
                 with ThreadPoolExecutor(max_workers=1) as executor:
                     pending = executor.submit(self.post)
