@@ -1,5 +1,6 @@
 """Review apis."""
 
+import asyncio
 import datetime
 import logging
 from functools import reduce
@@ -755,7 +756,9 @@ async def get_review(request: Request, review_id: str):
 )
 async def regenerate_review_description(request: Request, review_id: str):
     try:
-        review: ReviewSegment = ReviewSegment.get(ReviewSegment.id == review_id)
+        review: ReviewSegment = await asyncio.to_thread(
+            ReviewSegment.get, ReviewSegment.id == review_id
+        )
     except DoesNotExist:
         return JSONResponse(
             content={
@@ -797,7 +800,7 @@ async def regenerate_review_description(request: Request, review_id: str):
         )
 
     context: EmbeddingsContext = request.app.embeddings
-    context.regenerate_review_description(review_id)
+    await asyncio.to_thread(context.regenerate_review_description, review_id)
 
     return JSONResponse(
         content={
