@@ -1542,7 +1542,7 @@ async def set_description(
     body: EventsDescriptionBody,
 ):
     try:
-        event: Event = Event.get(Event.id == event_id)
+        event: Event = await asyncio.to_thread(Event.get, Event.id == event_id)
         await require_camera_access(event.camera, request=request)
     except DoesNotExist:
         return JSONResponse(
@@ -1553,7 +1553,7 @@ async def set_description(
     new_description = body.description
 
     event.data["description"] = new_description
-    event.save()
+    await asyncio.to_thread(event.save)
 
     context: EmbeddingsContext | None = request.app.embeddings
 
@@ -1561,13 +1561,16 @@ async def set_description(
         if len(new_description) > 0:
             # If semantic search is enabled, update the index
             if request.app.frigate_config.semantic_search.enabled:
-                context.update_description(
+                await asyncio.to_thread(
+                    context.update_description,
                     event_id,
                     new_description,
                 )
         else:
             # embeddings are always cleaned up so they don't outlive their description
-            context.db.delete_embeddings_description(event_ids=[event_id])
+            await asyncio.to_thread(
+                context.db.delete_embeddings_description, event_ids=[event_id]
+            )
 
     response_message = (
         f"Event {event_id} description is now blank"
